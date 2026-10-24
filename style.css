@@ -1,0 +1,191 @@
+/* ==========================================================
+   RAP EXQUISITE — style.css
+   Estética: fanzine fotocopiado, pared de calle, collage.
+   Cambia colores y tipografías en las variables de :root.
+   ========================================================== */
+:root {
+  --wall: #8e8e88;
+  --paper: #ebeae5;
+  --yellow: #ffe14a;
+  --red: #e8262b;
+  --cyan: #19b5d9;
+  --display: Impact, Haettenschweiler, "Arial Narrow Bold", "Arial Black", sans-serif;
+  --type: "Courier New", Courier, monospace;
+  --marker: "Marker Felt", "Segoe Print", "Bradley Hand", cursive;
+  --vh: 100vh;
+}
+@supports (height: 100svh) { :root { --vh: 100svh; } }
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  overflow-x: clip;
+  color: #000;
+  font: 1rem/1.45 var(--type);
+  /* Manchas de spray sobre muro */
+  background:
+    radial-gradient(circle at 10% 6%, rgba(25,181,217,.55) 0 15rem, transparent 15.1rem),
+    radial-gradient(circle at 94% 72%, rgba(232,38,43,.5) 0 13rem, transparent 13.1rem),
+    var(--wall);
+}
+/* Grano de fotocopia */
+body::before {
+  content: "";
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  opacity: .28; mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.masthead, .stage { position: relative; z-index: 1; }
+
+:focus-visible { outline: 4px dashed #000; outline-offset: 4px; }
+
+/* ---------- Cabecera ---------- */
+.masthead { text-align: center; padding: 1.4rem 1rem .4rem; }
+h1 { margin: 0; font: 400 clamp(2.2rem, 8vw, 4.2rem)/1.15 var(--display); }
+.t1, .t2 { display: inline-block; padding: .02em .2em; }
+.t1 { background: #000; color: var(--yellow); transform: rotate(-3deg); }
+.t2 { background: var(--paper); color: var(--red); letter-spacing: .04em; transform: rotate(2deg); box-shadow: 5px 5px 0 #000; }
+.tagline {
+  display: inline-block; margin: 1rem 0 0; padding: .2rem .8rem;
+  background: var(--yellow); font-weight: 700; font-size: .95rem; transform: rotate(-1deg);
+}
+.sound {
+  display: block; margin: .8rem auto 0; padding: .3rem .7rem; cursor: pointer;
+  font: 700 .85rem var(--type); background: var(--paper); border: 2px solid #000;
+}
+
+/* ---------- Escenario ---------- */
+.stage {
+  display: flex; flex-direction: column; align-items: center; gap: 1.6rem;
+  padding: 1.2rem 1rem 3rem;
+  /* Ancho de la figura: proporción 2:3, cabe en pantalla */
+  --fig-w: clamp(230px, min(88vw, calc((var(--vh) - 24rem) * .6667)), 520px);
+}
+
+.figure-wrap { position: relative; }
+.figure {
+  position: relative; width: var(--fig-w); aspect-ratio: 2 / 3;
+  display: flex; flex-direction: column;
+  padding: .55rem; background: var(--paper);
+  border: 3px solid #000; box-shadow: 10px 10px 0 #000;
+  transform: rotate(-1deg);
+}
+/* Trama de fotocopia sobre las fotos */
+.figure::after {
+  content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  background: radial-gradient(#000 1px, transparent 1.4px) 0 0 / 5px 5px;
+  opacity: .12; mix-blend-mode: multiply;
+}
+
+/* Cada franja ocupa 1/3 y recorta bordes "rasgados" */
+.strip { position: relative; flex: 1; overflow: hidden; }
+.strip[data-part="head"]  { clip-path: polygon(0 0,100% 0,100% 96%,86% 99%,64% 95%,41% 100%,19% 96%,0 99%); }
+.strip[data-part="torso"] { clip-path: polygon(0 3%,14% 0,37% 4%,59% 1%,81% 4%,100% 1%,100% 97%,79% 100%,55% 96%,30% 100%,8% 96%,0 99%); }
+.strip[data-part="legs"]  { clip-path: polygon(0 1%,18% 4%,42% 0,66% 4%,88% 1%,100% 3%,100% 100%,0 100%); }
+
+/* CLAVE DEL RECORTE: las tres franjas usan la MISMA capa (300 % de alto, misma escala y
+   mismo centrado horizontal); solo cambia el desplazamiento vertical (0, -100 %, -200 %). */
+.reel {
+  position: absolute; left: -2%; width: 104%; height: 300%;
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+  background-color: #444;
+}
+.strip[data-part="head"]  .reel { top: 0; }
+.strip[data-part="torso"] .reel { top: -100%; }
+.strip[data-part="legs"]  .reel { top: -200%; }
+
+.label {
+  position: absolute; left: .7rem; bottom: .9rem; z-index: 2;
+  padding: .05rem .6rem; background: var(--yellow);
+  font: 1.15rem var(--marker); transform: rotate(-3deg);
+}
+
+/* Estados de la mezcla */
+.strip.is-spinning .reel { filter: blur(1.5px) contrast(1.3) saturate(1.5); animation: jitter .12s steps(2) infinite; }
+.strip.is-landed { animation: slam .4s ease-out; }
+.is-mixing .figure { animation: shake .18s linear infinite; }
+@keyframes jitter { 50% { transform: translateX(3px); } }
+@keyframes slam {
+  0% { transform: translateY(-9px) scale(1.03); }
+  60% { transform: translateY(2px); }
+  100% { transform: none; }
+}
+@keyframes shake {
+  0%, 100% { transform: rotate(-1deg) translate(0, 0); }
+  50% { transform: rotate(-1deg) translate(2px, -2px); }
+}
+
+/* ---------- PERFECT MATCH ---------- */
+.figure-wrap::before {            /* rayos detrás de la figura */
+  content: ""; position: absolute; inset: -22%; z-index: -1; opacity: 0;
+  background: repeating-conic-gradient(var(--yellow) 0 10deg, transparent 10deg 20deg);
+  -webkit-mask-image: radial-gradient(circle, #000 35%, transparent 70%);
+          mask-image: radial-gradient(circle, #000 35%, transparent 70%);
+}
+.figure-wrap.is-perfect::before { opacity: 1; animation: spin 14s linear infinite; }
+.figure-wrap.is-perfect .figure { animation: wobble .7s ease-out; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes wobble {
+  0%, 100% { transform: rotate(-1deg); }
+  25% { transform: rotate(-4deg) scale(1.03); }
+  55% { transform: rotate(2deg) scale(1.03); }
+}
+
+.stamp {
+  position: absolute; left: 50%; top: 50%; z-index: 6; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; gap: .35rem;
+  width: max-content; max-width: 125%; opacity: 0;
+  transform: translate(-50%, -50%) rotate(-7deg);
+}
+.stamp.is-on { opacity: 1; animation: stampIn .55s cubic-bezier(.2, 1.4, .4, 1) both; }
+@keyframes stampIn {
+  from { opacity: 0; transform: translate(-50%, -50%) rotate(-20deg) scale(3.2); }
+  to   { opacity: 1; transform: translate(-50%, -50%) rotate(-7deg) scale(1); }
+}
+.stamp-kicker { padding: .2rem .8rem; background: #000; color: var(--yellow); font-weight: 700; }
+.stamp-name {
+  padding: .05em .25em; background: var(--yellow); color: #000;
+  font: 400 calc(var(--fig-w) * .2)/.95 var(--display);
+  text-align: center; text-wrap: balance;
+  border: 4px solid #000; box-shadow: 6px 6px 0 var(--red);
+}
+
+/* ---------- Ficha, botón, texto ---------- */
+.tag {
+  width: calc(var(--fig-w) + 3rem); max-width: 92vw;
+  padding: .8rem 1rem; background: var(--paper);
+  border: 2px solid #000; transform: rotate(1deg);
+}
+.tag-title { margin: 0; font: 400 1.5rem/1.1 var(--display); }
+.tag-parts { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin: .6rem 0 0; }
+.tag-parts div { min-width: 0; }
+.tag-parts dt { font-size: .75rem; }
+.tag-parts dd { margin: 0; font-weight: 700; font-size: .9rem; overflow-wrap: anywhere; }
+.tag-note { margin: .6rem 0 0; padding: .3rem .5rem; background: var(--yellow); font-size: .8rem; }
+
+.mix {
+  padding: .3em .7em; cursor: pointer;
+  font: 400 clamp(2rem, 8vw, 3.4rem)/1 var(--display); letter-spacing: .02em;
+  color: var(--paper); background: var(--red);
+  border: 4px solid #000; box-shadow: 8px 8px 0 #000;
+  transform: rotate(-2deg); transition: transform .08s, box-shadow .08s;
+}
+.mix:hover:not(:disabled) { transform: rotate(-2deg) translate(-2px, -2px); box-shadow: 10px 10px 0 #000; }
+.mix:active:not(:disabled) { transform: rotate(-2deg) translate(6px, 6px); box-shadow: 2px 2px 0 #000; }
+.mix:disabled {
+  cursor: not-allowed; color: #ddd; box-shadow: 2px 2px 0 #000; transform: rotate(-2deg) translate(6px, 6px);
+  background: repeating-linear-gradient(-45deg, #555 0 12px, #666 12px 24px);
+}
+
+.odds {
+  max-width: 34rem; margin: 0; padding: .7rem 1rem; font-size: .9rem;
+  background: var(--paper); border-left: 8px solid var(--cyan); transform: rotate(-.6deg);
+}
+#stats { display: block; margin-top: .3rem; font-weight: 700; }
+
+/* Movimiento reducido: sin animaciones (el JS además acorta la mezcla) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
