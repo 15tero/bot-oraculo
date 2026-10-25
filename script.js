@@ -1,301 +1,183 @@
-/* ==========================================================
-   RAP EXQUISITE — script.js  (JavaScript vanilla, sin dependencias)
-   1. Configuración y datos   4. Audio
-   2. Utilidades              5. Mezcla (tragamonedas)
-   3. Precarga de imágenes    6. Arranque
-   ========================================================== */
-(() => {
-  'use strict';
+"use strict";
 
-  /* ---------- 1. CONFIGURACIÓN Y DATOS ---------- */
-  const CONFIG = {
-    stops: [1500, 2400, 3300],      // ms en que se detiene cada franja
-    stopsReduced: [200, 350, 500],  // idem con prefers-reduced-motion
-    flickerMs: 70,                  // velocidad del cambio de foto mientras gira
-    scratchAt: [0, 700, 1500, 2300, 2900], // momentos del scratch durante la mezcla
-    perfectMaxMs: 0,                // 0 = audio completo; p. ej. 15000 lo corta a 15 s
-    loadTimeoutMs: 10000,           // espera máxima por imagen antes de dar la carga por buena
-    // Efectos cortos OPCIONALES. Si faltan, se sintetizan con Web Audio.
-    sfx: { scratch: 'assets/audio/sfx-scratch.mp3', stop: 'assets/audio/sfx-stop.mp3' }
-  };
+const ARTISTAS = [
+  { nombre: "2Pac",                foto: "images/2pac foto.jpg", youtube: "https://www.youtube.com/watch?v=0VGjV8Suyvg&list=RD0VGjV8Suyvg&start_radio=1" },
+  { nombre: "The Notorious B.I.G.", foto: "images/biggie foto.jpg", youtube: "https://www.youtube.com/watch?v=phaJXp_zMYM&list=RDphaJXp_zMYM&start_radio=1" },
+  { nombre: "Snoop Dogg",          foto: "images/snoop foto.jpg", youtube: "https://youtu.be/GtUVQei3nX4?si=MJgXEvP9Li-qFNHR" },
+  { nombre: "Eminem",              foto: "images/eminem foto.jpg", youtube: "https://youtu.be/eJO5HU_7_1w?si=EC-ndRTG-TSEItNx" },
+  { nombre: "Kendrick Lamar",      foto: "images/kendrick foto.jpg", youtube: "https://youtu.be/zI383uEwA6Q?si=Uwx-13-5wu6zK_fv" },
+  { nombre: "50 Cent",             foto: "images/50cent foto.jpg", youtube: "https://youtu.be/5qm8PH4xAss?si=S7sz2Q9-5V4CjDX6" },
+  { nombre: "Nas",                 foto: "images/nas foto.jpg", youtube: "https://youtu.be/mlp-IIG9ApU?si=so_Xm-fKgq5JYHoJ" },
+  { nombre: "Ice Cube",            foto: "images/ice cube foto.jpg", youtube: "https://youtu.be/rzRqEWJYwX4?si=NuoequMpezcilZqt" },
+  { nombre: "Tyler, the Creator",  foto: "images/tyler foto.jpg", youtube: "https://youtu.be/TGgcC5xg9YI?si=VC5xChJbjb9E8qjL" },
+  { nombre: "Crudo Means Raw",     foto: "images/crudo.jpg", youtube: "https://youtu.be/xETRzD3nYTk?si=O3E7gM5Q0PH3zK8E" },
+];
 
-  // Rutas RELATIVAS (sin "/" inicial) para que funcionen en GitHub Pages de proyecto.
-  // Para usar .webp o .png, cambia la extensión aquí.
-  const R = (id, name, color) => ({
-    id, name, color,
-    image: `assets/images/${id}.jpg`,
-    audio: `assets/audio/${id}.mp3`
+const EFECTOS = { scratch: "sound/click.mp3", corte: "sound/para.mp3", coincidencia: "sound/sisi.mp3" };
+
+const NOMBRES_PARTES = ["Cabeza", "Torso", "Piernas"];
+const TIEMPOS_PARADA = [900, 1600, 2300];      // milisegundos: la cabeza se detiene primero
+const TONOS_PROVISIONALES = ["#733F37", "#87917C", "#C0A36B", "#3b3f38", "#5a4a3c"];
+const estado = { mezclas: 0, mezclando: false, sonido: false, seleccion: [0, 0, 0] };
+const reducirMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const obtener = (identificador) => document.getElementById(identificador);
+
+function elegirIndiceUniforme(total) {
+  const limite = Math.floor(4294967296 / total) * total;   // descarta valores que sesgarían el resultado
+  const numero = new Uint32Array(1);
+  do { crypto.getRandomValues(numero); } while (numero[0] >= limite);
+  return numero[0] % total;
+}
+function precargarFotografias() {
+  ARTISTAS.forEach((artista) => {
+    artista.imagen = null;
+    if (!artista.foto) return;
+    const imagen = new Image();
+    imagen.onload = () => { artista.imagen = imagen; pintarTodas(); };
+    imagen.onerror = () => { console.warn("No se encontró la fotografía de " + artista.nombre + ": " + artista.foto); };
+    imagen.src = artista.foto;
   });
-  const RAPPERS = [
-    R('2pac', '2Pac', '#ffe14a'),
-    R('biggie', 'The Notorious B.I.G.', '#19b5d9'),
-    R('snoop', 'Snoop Dogg', '#e8262b'),
-    R('eminem', 'Eminem', '#8bd450'),
-    R('kendrick', 'Kendrick Lamar', '#ff8a3d'),
-    R('50cent', '50 Cent', '#c78bff'),
-    R('nas', 'Nas', '#ff7aa8'),
-    R('icecube', 'Ice Cube', '#3ddcb0'),
-    R('tyler', 'Tyler, the Creator', '#9ab0ff'),
-    R('mfdoom', 'MF DOOM', '#e6e6df')
-  ];
-  const N = RAPPERS.length;
+}
+function pintarFranja(posicion, indiceArtista) {
+  const artista = ARTISTAS[indiceArtista];
+  const franja = document.querySelector('.franja[data-franja="' + posicion + '"]');
+  const fotograma = franja.querySelector(".fotograma");
+  if (artista.imagen) {
+    fotograma.style.backgroundImage = 'url("' + artista.foto + '")';
+  } else {
+    const tono = TONOS_PROVISIONALES[indiceArtista % TONOS_PROVISIONALES.length];
+    fotograma.style.backgroundImage = "linear-gradient(160deg, " + tono + ", #171916 85%)";
+  }
+  const numero = String(indiceArtista + 1).padStart(2, "0");
+  franja.querySelector(".franja__etiqueta").textContent = artista.imagen
+    ? numero + " · " + artista.nombre
+    : numero + " · " + artista.nombre + " · foto pendiente";
+  obtener("nombreFragmento" + posicion).textContent = artista.nombre;
+}
+function pintarTodas() { estado.seleccion.forEach((indice, posicion) => pintarFranja(posicion, indice)); }
 
-  /* ---------- 2. UTILIDADES ---------- */
-  const $ = (sel, root = document) => root.querySelector(sel);
-  const prefersReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function reproducirEfecto(nombre) {
+  if (!estado.sonido || !EFECTOS[nombre]) return;
+  new Audio(EFECTOS[nombre]).play().catch(() => {});
+}
+function alternarSonido() {
+  estado.sonido = !estado.sonido;
+  const boton = obtener("botonSonido");
+  boton.textContent = "Efectos de sonido: " + (estado.sonido ? "sí" : "no");
+  boton.setAttribute("aria-pressed", String(estado.sonido));
+}
 
-  // Entero uniforme en [0, n) sin sesgo (rechazo + crypto). Es lo que mantiene el 1 % real.
-  function randomInt(n) {
-    if (window.crypto && crypto.getRandomValues) {
-      const max = Math.floor(0x100000000 / n) * n, buf = new Uint32Array(1);
-      let x;
-      do { crypto.getRandomValues(buf); x = buf[0]; } while (x >= max);
-      return x % n;
+function mezclarFragmentos() {
+  if (estado.mezclando) return;
+  estado.mezclando = true;
+  cerrarCoincidencia();
+  obtener("botonMezclar").disabled = true;
+  obtener("mensajeEstado").textContent = "Cortando cinta…";
+  reproducirEfecto("scratch");
+
+  const coincidenciaForzada = elegirIndiceUniforme(100) < 29;
+const finales = coincidenciaForzada ? Array(3).fill(elegirIndiceUniforme(ARTISTAS.length)) : [0, 1, 2].map(() => elegirIndiceUniforme(ARTISTAS.length));
+  const tiempos = reducirMovimiento ? [0, 150, 300] : TIEMPOS_PARADA;
+  const franjas = document.querySelectorAll(".franja");
+  const temporizadores = [];
+
+  franjas.forEach((franja, posicion) => {
+    franja.classList.remove("detenida");
+    if (!reducirMovimiento) {
+      franja.classList.add("girando");
+      temporizadores[posicion] = setInterval(() => pintarFranja(posicion, Math.floor(Math.random() * ARTISTAS.length)), 80);
     }
-    return Math.floor(Math.random() * n);
-  }
-
-  // Marcador temporal (SVG en data URI, sin recursos externos). Muestra el nombre y la ruta esperada.
-  function placeholder(r) {
-    const fs = Math.min(64, 280 / (r.name.length * 0.5));
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 900">
-<rect width="600" height="900" fill="${r.color}"/>
-<g fill="#000"><circle cx="300" cy="150" r="82"/><path d="M150 330Q150 255 235 250H365Q450 255 450 330V600H150Z"/><rect x="165" y="600" width="120" height="270"/><rect x="315" y="600" width="120" height="270"/></g>
-<text x="300" y="440" font-family="Impact,sans-serif" font-size="${fs}" text-anchor="middle" fill="${r.color}">${r.name}</text>
-<path d="M0 300H600M0 600H600" stroke="#fff" stroke-width="4" stroke-dasharray="14 10"/>
-<rect x="40" y="700" width="520" height="110" fill="#fff"/>
-<text x="300" y="745" font-family="monospace" font-size="30" font-weight="700" text-anchor="middle">FOTO PENDIENTE</text>
-<text x="300" y="785" font-family="monospace" font-size="24" text-anchor="middle">${r.image}</text></svg>`;
-    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-  }
-
-  /* ---------- 3. PRECARGA DE IMÁGENES ---------- */
-  // Si una imagen falla, se usa el marcador y se avisa por consola. Nunca se rompe la página.
-  const loadImage = (r) => new Promise((done) => {
-    const img = new Image();
-    let ended = false;
-    const end = (ok) => {
-      if (ended) return;
-      ended = true;
-      r.src = ok ? r.image : placeholder(r);
-      r.noImage = !ok;
-      if (!ok) console.warn(`[Rap Exquisite] Falta la imagen ${r.image}; se usa un marcador.`);
-      r.img = img; // mantener la referencia evita que el navegador la descarte de caché
-      done();
-    };
-    img.onload = () => end(true);
-    img.onerror = () => end(false);
-    setTimeout(() => end(true), CONFIG.loadTimeoutMs);
-    img.src = r.image;
+    setTimeout(() => {
+      clearInterval(temporizadores[posicion]);
+      estado.seleccion[posicion] = finales[posicion];
+      pintarFranja(posicion, finales[posicion]);
+      franja.classList.remove("girando");
+      franja.classList.add("detenida");
+      reproducirEfecto("corte");
+      if (posicion === 2) terminarMezcla();
+    }, tiempos[posicion]);
   });
-
-  /* ---------- 4. AUDIO ---------- */
-  const Sound = (() => {
-    let muted = false, ctx = null, capTimer = 0;
-    const live = new Set(), bad = new Set();
-
-    const ac = () => {
-      try {
-        ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
-        if (ctx.state === 'suspended') ctx.resume();
-      } catch (e) { /* sin Web Audio: silencio */ }
-      return ctx;
-    };
-
-    // Efectos de reserva sintetizados (originales, sin derechos de autor)
-    function synth(kind, i = 0) {
-      const c = ac(); if (!c) return;
-      const t = c.currentTime, g = c.createGain();
-      g.connect(c.destination);
-      if (kind === 'scratch') {
-        const d = 0.22, buf = c.createBuffer(1, c.sampleRate * d, c.sampleRate), x = buf.getChannelData(0);
-        for (let k = 0; k < x.length; k++) x[k] = (Math.random() * 2 - 1) * (1 - k / x.length);
-        const s = c.createBufferSource(), f = c.createBiquadFilter();
-        s.buffer = buf; f.type = 'bandpass'; f.Q.value = 6;
-        f.frequency.setValueAtTime(400, t);
-        f.frequency.exponentialRampToValueAtTime(3500, t + d / 2);
-        f.frequency.exponentialRampToValueAtTime(600, t + d);
-        g.gain.value = 0.5; s.connect(f).connect(g); s.start(t);
-      } else { // bombo
-        const o = c.createOscillator();
-        o.frequency.setValueAtTime(170 - i * 30, t);
-        o.frequency.exponentialRampToValueAtTime(45, t + 0.2);
-        g.gain.setValueAtTime(0.9, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
-        o.connect(g); o.start(t); o.stop(t + 0.3);
-      }
-    }
-
-    function sfx(name, i) {
-      if (muted) return;
-      if (bad.has(name)) return synth(name, i);
-      const a = new Audio(CONFIG.sfx[name]);
-      a.volume = 0.8; live.add(a);
-      a.onended = () => live.delete(a);
-      a.onerror = () => { bad.add(name); live.delete(a); synth(name, i); };
-      a.play().catch(() => {});
-    }
-
-    function prepare() {
-      Object.keys(CONFIG.sfx).forEach((n) => {          // detecta efectos ausentes
-        const a = new Audio(); a.preload = 'metadata';
-        a.onerror = () => bad.add(n); a.src = CONFIG.sfx[n];
-      });
-      RAPPERS.forEach((r) => {                           // un <audio> por rapero
-        const a = new Audio(); a.preload = 'metadata';
-        a.onerror = () => { r.noAudio = true; console.warn(`[Rap Exquisite] Falta el audio ${r.audio}.`); };
-        a.src = r.audio; r.audioEl = a;
-      });
-    }
-
-    // iOS/Safari solo permite sonar a un <audio> "desbloqueado" por un gesto. Como el resultado
-    // se decide al pulsar, desbloqueamos desde el clic el audio del PERFECT MATCH (en silencio).
-    function prime(r) {
-      const a = r.audioEl;
-      if (muted || !a || r.noAudio) return;
-      a.muted = true;
-      const p = a.play();
-      if (p && p.then) p.then(() => { if (a.muted) { a.pause(); a.currentTime = 0; a.muted = false; } }).catch(() => { a.muted = false; });
-    }
-
-    function play(r) {                                   // devuelve false si no pudo sonar
-      const a = r.audioEl;
-      if (muted || !a || r.noAudio) return false;
-      a.muted = false; a.currentTime = 0; a.volume = 1;
-      a.play().catch(() => {});
-      if (CONFIG.perfectMaxMs) capTimer = setTimeout(() => a.pause(), CONFIG.perfectMaxMs);
-      return true;
-    }
-
-    function stopAll() {                                 // evita solapes con intentos anteriores
-      clearTimeout(capTimer);
-      live.forEach((a) => a.pause()); live.clear();
-      RAPPERS.forEach((r) => {
-        const a = r.audioEl; if (!a) return;
-        a.pause(); a.muted = false;
-        try { a.currentTime = 0; } catch (e) { /* aún sin metadatos */ }
-      });
-    }
-
-    return {
-      prepare, prime, play, stopAll, unlock: ac,
-      scratch: () => sfx('scratch'),
-      hit: (i) => sfx('stop', i),
-      isMuted: () => muted,
-      toggle() { muted = !muted; if (muted) stopAll(); return muted; }
-    };
-  })();
-
-  /* ---------- 5. MEZCLA (TRAGAMONEDAS) ---------- */
-  const el = {
-    figure: $('#figure'), wrap: $('#wrap'), stamp: $('#stamp'), stampName: $('#stampName'),
-    btn: $('#mix'), title: $('#tagTitle'), note: $('#tagNote'), stats: $('#stats'), sound: $('#soundBtn'),
-    parts: [$('#pHead'), $('#pTorso'), $('#pLegs')]
-  };
-  const strips = [...document.querySelectorAll('.strip')].map((s) => ({ el: s, reel: $('.reel', s), shown: -1, timer: 0 }));
-  const st = { ready: false, busy: false, tries: 0, perfects: 0, timers: [] };
-  const later = (fn, ms) => st.timers.push(setTimeout(fn, ms));
-
-  function show(i, k) {
-    strips[i].reel.style.backgroundImage = `url("${RAPPERS[k].src}")`;
-    strips[i].shown = k;
+}
+function terminarMezcla() {
+  estado.mezclas++;
+  obtener("contadorMezclas").textContent = String(estado.mezclas).padStart(3, "0");
+  estado.mezclando = false;
+  obtener("botonMezclar").disabled = false;
+  const [a, b, c] = estado.seleccion;
+  if (a === b && b === c) {
+    obtener("mensajeEstado").textContent = "";
+    setTimeout(() => mostrarCoincidencia(a), 700);
+  } else {
+    obtener("mensajeEstado").textContent = "Identidad híbrida N.º " + String(estado.mezclas).padStart(3, "0") + ".";
   }
-
-  function describe(idx) {
-    const [a, b, c] = idx.map((k) => RAPPERS[k].name);
-    el.parts.forEach((p, i) => { p.textContent = RAPPERS[idx[i]].name; });
-    el.figure.setAttribute('aria-label', `Figura: cabeza de ${a}, torso de ${b}, piernas de ${c}`);
-  }
-
-  function setBusy(b) {
-    st.busy = b;
-    el.btn.disabled = b || !st.ready;
-    el.btn.setAttribute('aria-busy', String(b));
-    document.body.classList.toggle('is-mixing', b);
-  }
-
-  function flicker(i) { // solo cosmético: NO decide el resultado
-    let k;
-    do { k = Math.floor(Math.random() * N); } while (k === strips[i].shown);
-    show(i, k);
-  }
-
-  function land(i, k) {
-    clearInterval(strips[i].timer);
-    show(i, k);
-    strips[i].el.classList.replace('is-spinning', 'is-landed');
-    Sound.hit(i);
-  }
-
-  function mix() {
-    if (st.busy || !st.ready) return;
-    setBusy(true);
-    Sound.unlock(); Sound.stopAll();
-    st.timers.forEach(clearTimeout); st.timers = [];
-    el.stamp.classList.remove('is-on'); el.wrap.classList.remove('is-perfect');
-    el.note.hidden = true; el.title.textContent = 'Mezclando…';
-
-    // Tres sorteos independientes y uniformes. No hay ningún ajuste de probabilidad.
-    const result = [randomInt(N), randomInt(N), randomInt(N)];
-    const perfect = result[0] === result[1] && result[1] === result[2];
-    if (perfect) Sound.prime(RAPPERS[result[0]]);
-
-    const reduced = prefersReduced();
-    const stops = reduced ? CONFIG.stopsReduced : CONFIG.stops;
-    strips.forEach((s, i) => {
-      s.el.classList.remove('is-landed');
-      if (!reduced) {
-        s.el.classList.add('is-spinning');
-        s.timer = setInterval(() => flicker(i), CONFIG.flickerMs + i * 8);
-      }
-      later(() => land(i, result[i]), stops[i]);
-    });
-    CONFIG.scratchAt.filter((t) => t < stops[2]).forEach((t) => later(() => Sound.scratch(), t));
-    later(() => finish(result, perfect), stops[2] + 350);
-  }
-
-  function finish(result, perfect) {
-    st.tries++;
-    describe(result);
-    if (perfect) {
-      st.perfects++;
-      const r = RAPPERS[result[0]];
-      el.title.textContent = `PERFECT MATCH: ${r.name}`;
-      el.stampName.textContent = r.name;
-      void el.stamp.offsetWidth;                 // reinicia la animación
-      el.stamp.classList.add('is-on'); el.wrap.classList.add('is-perfect');
-      if (!Sound.play(r) && !Sound.isMuted()) {
-        el.note.textContent = `Falta el audio ${r.audio}. Añádelo para oír la recompensa.`;
-        el.note.hidden = false;
-      }
-    } else {
-      el.title.textContent = 'Criatura híbrida';  // se mantiene visible, sin sonido de recompensa
-    }
-    el.stats.textContent = `Mezclas: ${st.tries}. Perfect match: ${st.perfects}.`;
-    setBusy(false);
-    el.btn.focus({ preventScroll: true });
-  }
-
-  /* ---------- 6. ARRANQUE ---------- */
-  Sound.prepare();
-  el.btn.addEventListener('click', mix);
-  el.sound.addEventListener('click', () => {
-    el.sound.textContent = Sound.toggle() ? 'Sonido: no' : 'Sonido: sí';
+}
+function mostrarCoincidencia(indiceArtista) {
+  estado.artistaCoincidente = indiceArtista;
+  obtener("mensajeCoincidencia").textContent = "";
+  obtener("contenedorVideo").innerHTML = "";
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => {
+    dibujarPortada(ARTISTAS[indiceArtista], indiceArtista);
+    obtener("coincidencia").hidden = false;
+    reproducirEfecto("coincidencia");
   });
+}
+function cerrarCoincidencia() {
+  obtener("coincidencia").hidden = true;
+  obtener("contenedorVideo").innerHTML = "";
+}
 
-  Promise.all(RAPPERS.map(loadImage)).then(() => {
-    // Figura inicial híbrida (no cuenta como intento)
-    let init;
-    do { init = [0, 1, 2].map(() => Math.floor(Math.random() * N)); }
-    while (init[0] === init[1] && init[1] === init[2]);
-    init.forEach((k, i) => show(i, k));
-    describe(init);
-    el.title.textContent = 'Aún sin mezclar';
-    const missing = RAPPERS.filter((r) => r.noImage).length;
-    if (missing) {
-      el.note.textContent = `Modo montaje: faltan ${missing} de ${N} fotos y se usan marcadores.`;
-      el.note.hidden = false;
-    }
-    st.ready = true;
-    setBusy(false);
-  });
-})();
+function dibujarPortada(artista, indice) {
+  const lienzo = obtener("lienzoPortada"), t = lienzo.width, x = lienzo.getContext("2d");
+  x.fillStyle = "#171916"; x.fillRect(0, 0, t, t);
+  if (artista.imagen) {                                   // fotografía recortada para cubrir el cuadrado, alineada arriba
+    const im = artista.imagen, escala = Math.max(t / im.width, t / im.height);
+    x.save(); x.filter = "grayscale(1) contrast(1.1)";
+    x.drawImage(im, (t - im.width * escala) / 2, 0, im.width * escala, im.height * escala);
+    x.restore();
+  } else {
+    const degradado = x.createLinearGradient(0, 0, t, t);
+    degradado.addColorStop(0, TONOS_PROVISIONALES[indice % TONOS_PROVISIONALES.length]); degradado.addColorStop(1, "#171916");
+    x.fillStyle = degradado; x.fillRect(0, 0, t, t);
+  }
+  const velo = x.createLinearGradient(0, t * 0.35, 0, t);
+  velo.addColorStop(0, "rgba(23,25,22,0)"); velo.addColorStop(1, "rgba(23,25,22,.94)");
+  x.fillStyle = velo; x.fillRect(0, 0, t, t);
+  x.fillStyle = "rgba(115,63,55,.85)"; x.fillRect(60, 60, 14, 300);               // franja vino editorial
+  x.strokeStyle = "#C0A36B"; x.lineWidth = 2; x.strokeRect(36, 36, t - 72, t - 72);  // marco dorado fino
+  x.fillStyle = "#E9E4D8"; x.font = "26px 'IBM Plex Mono', monospace"; x.textBaseline = "alphabetic";
+  x.fillText("SAMPLE — UN ESTUDIO EN FRAGMENTOS", 100, 100);
+  x.fillStyle = "#C0A36B"; x.fillText("N.º " + String(indice + 1).padStart(2, "0") + " / MEZCLA " + String(estado.mezclas).padStart(3, "0"), 100, 140);
+  let tamano = 230;                                        // el nombre se reduce hasta caber en el ancho
+  do { x.font = tamano + "px Anton, Impact, sans-serif"; tamano -= 6; } while (x.measureText(artista.nombre.toUpperCase()).width > t - 200 && tamano > 40);
+  x.fillStyle = "#E9E4D8"; x.fillText(artista.nombre.toUpperCase(), 100, t - 190);
+  x.fillStyle = "#87917C"; x.font = "italic 38px 'Cormorant Garamond', Georgia, serif";
+  x.fillText("Cada identidad es un remix.", 100, t - 120);
+  x.fillStyle = "#C0A36B"; x.font = "22px 'IBM Plex Mono', monospace";
+  x.fillText(artista.imagen ? "COLECCIÓN / EDICIÓN 01" : "FOTOGRAFÍA PENDIENTE", 100, t - 80);
+}
+
+
+function escucharMusica() {
+  window.open(ARTISTAS[estado.artistaCoincidente].youtube, "_blank");
+}
+/* ===== 11. ENTRADA Y EVENTOS ===== */
+function entrarAlLaboratorio() {
+  const portada = obtener("portada");
+  portada.classList.add("saliendo");
+  setTimeout(() => {
+    portada.hidden = true;
+    obtener("laboratorio").hidden = false;
+    pintarTodas();
+    mezclarFragmentos();
+  }, reducirMovimiento ? 0 : 700);
+}
+
+precargarFotografias();
+pintarTodas();
+obtener("botonEntrar").addEventListener("click", entrarAlLaboratorio);
+obtener("botonMezclar").addEventListener("click", mezclarFragmentos);
+obtener("botonRemezclar").addEventListener("click", mezclarFragmentos);
+obtener("botonSonido").addEventListener("click", alternarSonido);
+obtener("botonEscuchar").addEventListener("click", escucharMusica);
+obtener("botonCerrar").addEventListener("click", cerrarCoincidencia);
+document.addEventListener("keydown", (evento) => { if (evento.key === "Escape") cerrarCoincidencia(); });
