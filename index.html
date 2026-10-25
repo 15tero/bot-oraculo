@@ -1,54 +1,79 @@
 <!DOCTYPE html>
+<!-- SAMPLE — Un estudio en fragmentos. Estructura de la página: portada, laboratorio y coincidencia perfecta. -->
 <html lang="es">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>RAP EXQUISITE — Hip-Hop Oracle</title>
-  <meta name="description" content="Mezcla cabeza, torso y piernas de diez raperos. Si salen los tres del mismo, PERFECT MATCH.">
+  <title>SAMPLE — Un estudio en fragmentos</title>
+  <!-- Tipografías gratuitas de Google Fonts: Anton (títulos), Cormorant Garamond (textos), IBM Plex Mono (archivo) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<main>
 
-  <header class="masthead">
-    <h1><span class="t1">RAP</span> <span class="t2">EXQUISITE</span></h1>
-    <p class="tagline">Hip-Hop Oracle: bestiario de cadáveres exquisitos</p>
-    <button type="button" class="sound" id="soundBtn">Sonido: sí</button>
-  </header>
-
-  <main class="stage">
-    <!-- Figura central: tres franjas de UNA MISMA imagen por rapero (el recorte lo hace el CSS) -->
-    <div class="figure-wrap" id="wrap">
-      <div class="figure" id="figure" role="img" aria-label="Figura cargando">
-        <div class="strip" data-part="head"><div class="reel"></div><span class="label">cabeza</span></div>
-        <div class="strip" data-part="torso"><div class="reel"></div><span class="label">torso</span></div>
-        <div class="strip" data-part="legs"><div class="reel"></div><span class="label">piernas</span></div>
-        <div class="stamp" id="stamp" aria-hidden="true">
-          <span class="stamp-kicker">PERFECT MATCH</span>
-          <span class="stamp-name" id="stampName"></span>
-        </div>
+  <!-- PRIMER MOMENTO: portada a pantalla completa -->
+  <section id="portada" class="portada">
+    <header class="portada__cabecera mono">
+      <span>Edición N.º 01</span>
+      <span>Archivo de fragmentos / 10 identidades</span>
+    </header>
+    <h1 class="portada__titulo">SAMPLE</h1>
+    <div class="portada__pie">
+      <div>
+        <p class="portada__subtitulo">Un estudio en fragmentos</p>
+        <p class="portada__frase">Cada identidad es un remix.</p>
       </div>
+      <button id="botonEntrar" class="boton boton--principal" type="button">ENTRAR</button>
     </div>
+    <p class="portada__nota mono">Fig. 00 — cabeza / torso / piernas</p>
+  </section>
 
-    <!-- Ficha de la criatura (se anuncia a lectores de pantalla) -->
-    <div class="tag" role="status" aria-live="polite">
-      <p class="tag-title" id="tagTitle">Cargando imágenes…</p>
-      <dl class="tag-parts">
-        <div><dt>Cabeza</dt><dd id="pHead">—</dd></div>
-        <div><dt>Torso</dt><dd id="pTorso">—</dd></div>
-        <div><dt>Piernas</dt><dd id="pLegs">—</dd></div>
-      </dl>
-      <p class="tag-note" id="tagNote" hidden></p>
+  <!-- SEGUNDO MOMENTO: laboratorio de fragmentos -->
+  <section id="laboratorio" class="laboratorio" hidden>
+    <header class="laboratorio__cabecera mono">
+      <span>SAMPLE / Laboratorio</span>
+      <button id="botonSonido" class="enlace" type="button" aria-pressed="false">Efectos de sonido: no</button>
+    </header>
+
+    <aside class="columna columna--izquierda">
+      <ol id="listaFragmentos" class="fragmentos">
+        <li><span class="mono">01</span><span class="fragmentos__parte">Cabeza</span><strong id="nombreFragmento0">—</strong></li>
+        <li><span class="mono">02</span><span class="fragmentos__parte">Torso</span><strong id="nombreFragmento1">—</strong></li>
+        <li><span class="mono">03</span><span class="fragmentos__parte">Piernas</span><strong id="nombreFragmento2">—</strong></li>
+      </ol>
+    </aside>
+
+    <figure id="figura" class="figura" aria-label="Figura compuesta por tres fragmentos fotográficos">
+      <div class="franja" data-franja="0"><div class="fotograma"></div><span class="franja__etiqueta mono"></span></div>
+      <div class="franja" data-franja="1"><div class="fotograma"></div><span class="franja__etiqueta mono"></span></div>
+      <div class="franja" data-franja="2"><div class="fotograma"></div><span class="franja__etiqueta mono"></span></div>
+    </figure>
+
+    <aside class="columna columna--derecha">
+      <p class="mono">Mezcla N.º <span id="contadorMezclas">000</span></p>
+      <p class="texto-conceptual">Una identidad no se hereda: se samplea, se corta y se vuelve a pegar.</p>
+      <button id="botonMezclar" class="boton boton--principal" type="button">VOLVER A MEZCLAR</button>
+      <p id="mensajeEstado" class="mono mensaje" aria-live="polite"></p>
+    </aside>
+  </section>
+
+  <!-- COINCIDENCIA PERFECTA: portada cuadrada de álbum -->
+  <section id="coincidencia" class="coincidencia" role="dialog" aria-modal="true" aria-label="Coincidencia perfecta" hidden>
+    <p class="coincidencia__titulo">COINCIDENCIA PERFECTA</p>
+    <canvas id="lienzoPortada" class="coincidencia__lienzo" width="1200" height="1200"></canvas>
+    <div class="coincidencia__acciones">
+      <button id="botonEscuchar" class="boton" type="button">Escuchar</button>
+      <button id="botonRemezclar" class="boton boton--principal" type="button">Volver a mezclar</button>
+      <button id="botonCerrar" class="enlace mono" type="button">Cerrar</button>
     </div>
+    <p id="mensajeCoincidencia" class="mono mensaje" aria-live="polite"></p>
+    <div id="contenedorVideo" class="coincidencia__video"></div>
+  </section>
 
-    <button type="button" class="mix" id="mix" disabled>MIX THE RAP</button>
-
-    <p class="odds">
-      Diez raperos, tres sorteos independientes: 1.000 combinaciones, 10 de ellas con el mismo rapero
-      en las tres franjas. PERFECT MATCH = 1 % por mezcla, sin trucos.
-      <span id="stats">Mezclas: 0. Perfect match: 0.</span>
-    </p>
-  </main>
-
-  <script src="script.js" defer></script>
+</main>
+<script src="script.js"></script>
 </body>
 </html>
